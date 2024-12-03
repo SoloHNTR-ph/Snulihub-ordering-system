@@ -25,7 +25,7 @@
 
 
 
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import app from '../firebaseConfig';
 
 const db = getFirestore(app);
@@ -40,9 +40,28 @@ export const createOrder = async (orderData) => {
     };
     
     const docRef = await addDoc(ordersCollection, orderWithTimestamp);
-    return { success: true, orderId: docRef.id };
+    return { orderId: docRef.id, success: true };
   } catch (error) {
     console.error('Error creating order:', error);
-    return { success: false, error: error.message };
+    throw error;
+  }
+};
+
+export const getOrderById = async (orderId) => {
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    const orderDoc = await getDoc(orderRef);
+    
+    if (!orderDoc.exists()) {
+      return null;
+    }
+    
+    return {
+      id: orderDoc.id,
+      ...orderDoc.data()
+    };
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    throw error;
   }
 };

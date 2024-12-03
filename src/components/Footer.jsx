@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 
 const Footer = () => {
   return (
-    <footer className="bg-white border-t">
-      <div className="container mx-auto px-4 py-12">
+    <footer className="bg-white border-t w-full">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
@@ -61,7 +61,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-gray-200">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-gray-500">© 2024 SnuliHub Store. All rights reserved.</p>
+            <p className="text-gray-500"> 2024 SnuliHub Store. All rights reserved.</p>
             <div className="flex space-x-6">
               <a href="#" className="text-gray-500 hover:text-primary-600">Privacy Policy</a>
               <a href="#" className="text-gray-500 hover:text-primary-600">Terms of Service</a>

@@ -9,12 +9,14 @@ import Home from './pages/Home'
 import Products from './pages/Products'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
+import Tracking from './pages/Tracking'
+import UserConsole from './pages/UserConsole'
 import { CartProvider } from './context/CartContext'
 
 const DefaultLayout = ({ children }) => (
-  <div className="min-h-screen bg-gray-50 flex flex-col">
+  <div className="min-h-screen bg-gray-50 flex flex-col w-full">
     <Navbar />
-    <main className="container mx-auto px-4 py-8 flex-grow">
+    <main className="flex-grow max-w-7xl mx-auto px-4 py-8 w-full">
       {children}
     </main>
     <Footer />
@@ -22,14 +24,21 @@ const DefaultLayout = ({ children }) => (
 );
 
 const CheckoutLayout = ({ children }) => (
-  <div className="min-h-screen">
+  <div className="min-h-screen w-full">
     {children}
   </div>
 );
 
-function App() {
-  const [count, setCount] = useState(0)
+const TrackingLayout = ({ children }) => (
+  <div className="min-h-screen bg-gray-50 flex flex-col w-full">
+    <main className="flex-grow w-full">
+      {children}
+    </main>
+    <Footer />
+  </div>
+);
 
+function App() {
   return (
     <CartProvider>
       <Router>
@@ -43,6 +52,14 @@ function App() {
             }
           />
           <Route
+            path="/order/:orderId/:userId"
+            element={
+              <TrackingLayout>
+                <Tracking />
+              </TrackingLayout>
+            }
+          />
+          <Route
             path="*"
             element={
               <DefaultLayout>
@@ -50,6 +67,7 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/products" element={<Products />} />
                   <Route path="/cart" element={<Cart />} />
+                  <Route path="/admin/users" element={<UserConsole />} />
                 </Routes>
               </DefaultLayout>
             }
