@@ -61,6 +61,11 @@ export const userService = {
   // Create a new user
   async createUser(userData) {
     try {
+      console.log('8. UserService received userData:', {
+        primaryPhone: userData.primaryPhone,
+        secondaryPhone: userData.secondaryPhone
+      });
+
       // Check if user already exists
       const existingUser = await this.getUserByEmail(userData.email);
       if (existingUser) {
@@ -70,15 +75,31 @@ export const userService = {
       // Generate user ID (default to customer)
       const userId = await this.generateNextUserId('cu');
       
-      // Create user document
-      const userRef = doc(db, USERS_COLLECTION, userId);
-      await setDoc(userRef, {
+      // Create user document with explicit phone numbers
+      const userDoc = {
         ...userData,
+        primaryPhone: userData.primaryPhone || '',
+        secondaryPhone: userData.secondaryPhone || '',
         id: userId,
         userId: userId,
         category: this.detectCategory(userId),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      };
+
+      console.log('9. Final userDoc before Firestore:', {
+        primaryPhone: userDoc.primaryPhone,
+        secondaryPhone: userDoc.secondaryPhone
+      });
+
+      const userRef = doc(db, USERS_COLLECTION, userId);
+      await setDoc(userRef, userDoc);
+
+      // Verify the data was stored correctly
+      const storedUser = await getDoc(userRef);
+      console.log('10. Stored user data:', {
+        primaryPhone: storedUser.data().primaryPhone,
+        secondaryPhone: storedUser.data().secondaryPhone
       });
 
       return { userId, success: true };
@@ -107,6 +128,24 @@ export const userService = {
       return { success: true };
     } catch (error) {
       console.error('Error updating user:', error);
+      throw error;
+    }
+  },
+
+  // Update user's active status
+  async updateUserActiveStatus(userId, isActive) {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      const userRef = doc(db, USERS_COLLECTION, userId);
+      await updateDoc(userRef, {
+        isActive: isActive,
+        lastActiveAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating user active status:', error);
       throw error;
     }
   },
@@ -258,6 +297,21 @@ export const userService = {
       };
     } catch (error) {
       console.error('Error getting user by ID:', error);
+      throw error;
+    }
+  },
+
+  // Get all users
+  async getAllUsers() {
+    try {
+      const usersRef = collection(db, USERS_COLLECTION);
+      const querySnapshot = await getDocs(usersRef);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting all users:', error);
       throw error;
     }
   }

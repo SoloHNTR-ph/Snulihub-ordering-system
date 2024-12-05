@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import app from '../firebaseConfig';
 import { userService } from '../services/userService';
+import CreateProductModal from '../components/CreateProductModal';
 
 const db = getFirestore(app);
 
@@ -24,6 +25,7 @@ const UserConsole = () => {
     phone: '',
     category: 'customer'
   });
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Fetch all users
   const fetchUsers = async () => {
@@ -121,12 +123,31 @@ const UserConsole = () => {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  // Handle product creation success
+  const handleProductCreated = (newProduct) => {
+    // You can add additional logic here if needed
+    setIsProductModalOpen(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">User Management Console</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">User Management Console</h1>
+        <button
+          onClick={() => setIsProductModalOpen(true)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Add New Product
+        </button>
+      </div>
 
       {/* Create New User Form */}
       <div className="bg-white p-4 rounded shadow mb-6">
@@ -198,138 +219,88 @@ const UserConsole = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full table-auto">
             <thead>
-              <tr className="bg-gray-100">
+              <tr>
                 <th className="px-4 py-2">ID</th>
-                <th className="px-4 py-2">Category</th>
+                <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">First Name</th>
-                <th className="px-4 py-2">Last Name</th>
                 <th className="px-4 py-2">Phone</th>
+                <th className="px-4 py-2">Category</th>
+                <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
-                <tr key={user.id} className="border-b">
-                  {editingUser?.id === user.id ? (
-                    <>
-                      <td className="px-4 py-2">{user.id}</td>
-                      <td className="px-4 py-2">
-                        <select
-                          value={editingUser.category}
-                          onChange={(e) => setEditingUser({...editingUser, category: e.target.value})}
-                          className="w-full p-1 border rounded"
-                        >
-                          <option value="customer">Customer</option>
-                          <option value="franchise">Franchise</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="email"
-                          value={editingUser.email}
-                          onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
-                          className="w-full p-1 border rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editingUser.firstName}
-                          onChange={(e) => setEditingUser({...editingUser, firstName: e.target.value})}
-                          className="w-full p-1 border rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editingUser.lastName}
-                          onChange={(e) => setEditingUser({...editingUser, lastName: e.target.value})}
-                          className="w-full p-1 border rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="tel"
-                          value={editingUser.phone}
-                          onChange={(e) => setEditingUser({...editingUser, phone: e.target.value})}
-                          className="w-full p-1 border rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td className="border px-4 py-2">{user.id}</td>
+                  <td className="border px-4 py-2">{`${user.firstName} ${user.lastName}`}</td>
+                  <td className="border px-4 py-2">{user.email}</td>
+                  <td className="border px-4 py-2">{user.primaryPhone || 'N/A'}</td>
+                  <td className="border px-4 py-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      user.category === 'franchise' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {user.category}
+                    </span>
+                  </td>
+                  <td className="border px-4 py-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      user.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="border px-4 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setEditingUser({
+                          id: user.id,
+                          email: user.email || '',
+                          firstName: user.firstName || '',
+                          lastName: user.lastName || '',
+                          phone: user.phone || '',
+                          category: user.category || 'customer'
+                        })}
+                        className="bg-yellow-500 text-white px-2 py-1 rounded text-sm hover:bg-yellow-600"
+                      >
+                        Edit
+                      </button>
+                      {user.category === 'customer' && (
                         <button
-                          onClick={handleUpdateUser}
-                          className="bg-green-500 text-white px-2 py-1 rounded mr-2 hover:bg-green-600"
+                          onClick={() => handleUpgradeToFranchise(user.id)}
+                          className="bg-purple-500 text-white px-2 py-1 rounded text-sm hover:bg-purple-600 whitespace-nowrap"
                         >
-                          Save
+                          Upgrade
                         </button>
+                      )}
+                      {user.category === 'franchise' && (
                         <button
-                          onClick={() => setEditingUser(null)}
-                          className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                          onClick={() => handleRevertToCustomer(user.id)}
+                          className="bg-blue-500 text-white px-2 py-1 rounded text-sm hover:bg-blue-600 whitespace-nowrap"
                         >
-                          Cancel
+                          Revert
                         </button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-2">{user.id}</td>
-                      <td className="px-4 py-2">
-                        <span className={`px-2 py-1 rounded text-sm ${
-                          user.category === 'franchise' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {user.category}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">{user.email}</td>
-                      <td className="px-4 py-2">{user.firstName}</td>
-                      <td className="px-4 py-2">{user.lastName}</td>
-                      <td className="px-4 py-2">{user.phone}</td>
-                      <td className="px-4 py-2 space-x-2">
-                        <button
-                          onClick={() => setEditingUser({
-                            id: user.id,
-                            email: user.email || '',
-                            firstName: user.firstName || '',
-                            lastName: user.lastName || '',
-                            phone: user.phone || '',
-                            category: user.category || 'customer'
-                          })}
-                          className="bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600"
-                        >
-                          Edit
-                        </button>
-                        {user.category === 'customer' && (
-                          <button
-                            onClick={() => handleUpgradeToFranchise(user.id)}
-                            className="bg-purple-500 text-white px-2 py-1 rounded hover:bg-purple-600"
-                          >
-                            Upgrade to Franchise
-                          </button>
-                        )}
-                        {user.category === 'franchise' && (
-                          <button
-                            onClick={() => handleRevertToCustomer(user.id)}
-                            className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                          >
-                            Revert to Customer
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </>
-                  )}
+                      )}
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="bg-red-500 text-white px-2 py-1 rounded text-sm hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      <CreateProductModal 
+        isOpen={isProductModalOpen} 
+        onClose={() => setIsProductModalOpen(false)}
+        onProductCreated={handleProductCreated}
+      />
     </div>
   );
 };

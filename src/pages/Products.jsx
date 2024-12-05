@@ -1,17 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
 import ProductCard from '../components/Product_card';
-import CreateProductModal from '../components/CreateProductModal';
 import { productService } from '../services/productService';
 
 const Products = () => {
-  const navigate = useNavigate();
-  const { cartItems } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchProducts = async () => {
     try {
@@ -30,10 +24,6 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
-
-  const handleProductCreated = (newProduct) => {
-    setProducts(prevProducts => [...prevProducts, newProduct]);
-  };
 
   if (loading) {
     return (
@@ -57,27 +47,8 @@ const Products = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold">Our Products</h1>
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate('/cart')}
-            className="btn-secondary flex items-center gap-2"
-          >
-            Cart
-            {cartItems.length > 0 && (
-              <span className="bg-primary-600 text-white rounded-full px-2 py-1 text-sm">
-                {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn-primary"
-          >
-            Add New Product
-          </button>
-        </div>
       </div>
       {products.length === 0 ? (
         <div className="text-center text-gray-500 py-8">
@@ -90,11 +61,6 @@ const Products = () => {
           ))}
         </div>
       )}
-      <CreateProductModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)}
-        onProductCreated={handleProductCreated}
-      />
     </div>
   );
 };

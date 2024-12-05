@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MagnifyingGlassIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { getOrderById } from '../services/orderService';
+import { collection, query, where, getDocs, getFirestore } from 'firebase/firestore';
+import app from '../firebaseConfig';
 
 const Tracking = () => {
-  const { orderId, userId } = useParams();
+  const { customerUserId, orderCodeWithFranchise: orderCode } = useParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('pending'); // 'pending' or 'received'
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -17,32 +18,59 @@ const Tracking = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchOrderDetails = async () => {
+    const fetchOrder = async () => {
+      console.log('Fetching order with:', { customerUserId, orderCode });
       try {
         setLoading(true);
-        const orderData = await getOrderById(orderId);
-        if (!orderData) {
+        const db = getFirestore(app);
+        const ordersRef = collection(db, 'orders');
+        
+        // Query orders collection directly
+        const q = query(ordersRef, where('orderCode', '==', orderCode));
+        console.log('Executing query...');
+        const querySnapshot = await getDocs(q);
+        console.log('Query results:', querySnapshot.size);
+        
+        if (querySnapshot.empty) {
+          console.log('No matching orders found');
           setError('Order not found');
+          setLoading(false);
           return;
         }
         
-        // Verify that the userId from URL matches the order's userId
-        if (orderData.userId !== userId) {
+        // Get the first matching order
+        const orderDoc = querySnapshot.docs[0];
+        const orderData = {
+          id: orderDoc.id,
+          ...orderDoc.data()
+        };
+        console.log('Order data:', orderData);
+        
+        // Verify this order belongs to the customer
+        if (orderData.userId !== customerUserId) {
+          console.log('Unauthorized: Order belongs to different user');
           setError('Unauthorized access');
+          setLoading(false);
           return;
         }
         
         setOrder(orderData);
         setPaymentStatus(orderData.status || 'pending');
       } catch (err) {
-        setError(err.message);
+        console.error('Error fetching order:', err);
+        setError('Error fetching order details');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrderDetails();
-  }, [orderId, userId]);
+    if (customerUserId && orderCode) {
+      fetchOrder();
+    } else {
+      console.log('Missing required parameters:', { customerUserId, orderCode });
+      setLoading(false);
+    }
+  }, [customerUserId, orderCode]);
 
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
@@ -75,19 +103,28 @@ const Tracking = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading order details...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-        <div className="text-red-600 mb-4">{error}</div>
-        <Link to="/" className="text-blue-600 hover:text-blue-700">
-          Return to Home
-        </Link>
+      <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center">
+            <p className="text-red-600">{error}</p>
+            <Link to="/" className="mt-4 inline-block text-blue-600 hover:text-blue-800">
+              Return to Home
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -132,7 +169,7 @@ const Tracking = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 h-auto">
           <div className="text-center mb-8">     
             <h1 className="text-2xl font-semibold text-gray-900">Track Your Order</h1>
-            <p className="mt-2 text-gray-600">Order ID: {orderId || 'Not available'}</p>
+            <p className="mt-2 text-gray-600">Order ID: {orderCode || 'Not available'}</p>
           </div>
 
           <div className="flex justify-between items-start w-full mb-8 relative">
