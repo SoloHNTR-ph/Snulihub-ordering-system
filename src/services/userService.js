@@ -1,5 +1,4 @@
 import { 
-  getFirestore, 
   collection, 
   doc,
   setDoc,
@@ -12,9 +11,8 @@ import {
   deleteDoc,
   updateDoc
 } from 'firebase/firestore';
-import app from '../firebaseConfig';
+import { db } from '../firebaseConfig';
 
-const db = getFirestore(app);
 const USERS_COLLECTION = 'users';
 const COUNTERS_COLLECTION = 'counters';
 const CUSTOMER_COUNTER_DOC = 'customerCounter';
@@ -46,7 +44,7 @@ export const userService = {
       });
     } catch (error) {
       console.error('Error generating user ID:', error);
-      throw error;
+      throw new Error(`Failed to generate user ID: ${error.message}`);
     }
   },
 
@@ -105,7 +103,7 @@ export const userService = {
       return { userId, success: true };
     } catch (error) {
       console.error('Error creating user:', error);
-      throw error;
+      throw new Error(`Failed to create user: ${error.message}`);
     }
   },
 
@@ -128,7 +126,7 @@ export const userService = {
       return { success: true };
     } catch (error) {
       console.error('Error updating user:', error);
-      throw error;
+      throw new Error(`Failed to update user: ${error.message}`);
     }
   },
 
@@ -146,7 +144,7 @@ export const userService = {
       });
     } catch (error) {
       console.error('Error updating user active status:', error);
-      throw error;
+      throw new Error(`Failed to update user active status: ${error.message}`);
     }
   },
 
@@ -200,7 +198,7 @@ export const userService = {
       return { userId: newFranchiseId, success: true };
     } catch (error) {
       console.error('Error upgrading user to franchise:', error);
-      throw error;
+      throw new Error(`Failed to upgrade user to franchise: ${error.message}`);
     }
   },
 
@@ -253,31 +251,43 @@ export const userService = {
       return { userId: originalCustomerId, success: true };
     } catch (error) {
       console.error('Error reverting user to customer:', error);
-      throw error;
+      throw new Error(`Failed to revert user to customer: ${error.message}`);
     }
   },
 
   // Get user by email
   async getUserByEmail(email) {
+    if (!email) {
+      console.error('Email is required');
+      throw new Error('Email is required');
+    }
+
     try {
+      console.log('Querying Firestore for email:', email);
       const q = query(
         collection(db, USERS_COLLECTION),
-        where('email', '==', email)
+        where('email', '==', email.toLowerCase())
       );
       
       const querySnapshot = await getDocs(q);
+      console.log('Query snapshot:', querySnapshot.size, 'documents found');
+      
       if (querySnapshot.empty) {
+        console.log('No user found with email:', email);
         return null;
       }
 
       const doc = querySnapshot.docs[0];
-      return {
+      const userData = {
         id: doc.id,
         ...doc.data()
       };
+      console.log('User data retrieved:', { id: userData.id, email: userData.email });
+      
+      return userData;
     } catch (error) {
       console.error('Error getting user by email:', error);
-      throw error;
+      throw new Error(`Failed to get user: ${error.message}`);
     }
   },
 
@@ -297,7 +307,7 @@ export const userService = {
       };
     } catch (error) {
       console.error('Error getting user by ID:', error);
-      throw error;
+      throw new Error(`Failed to get user: ${error.message}`);
     }
   },
 
@@ -312,7 +322,7 @@ export const userService = {
       }));
     } catch (error) {
       console.error('Error getting all users:', error);
-      throw error;
+      throw new Error(`Failed to get all users: ${error.message}`);
     }
   }
 };
