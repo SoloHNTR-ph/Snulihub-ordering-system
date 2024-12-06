@@ -70,22 +70,52 @@ const Checkout = () => {
 
   // Populate form data with user information if logged in
   useEffect(() => {
-    if (currentUser) {
-      setFormData(prevData => ({
-        ...prevData,
-        firstName: currentUser.firstName || '',
-        lastName: currentUser.lastName || '',
-        email: currentUser.email || '',
-        country: currentUser.country || '',
-        countryCode: currentUser.countryCode || 'US',
-        primaryPhone: currentUser.primaryPhone || '+1',
-        secondaryPhone: currentUser.secondaryPhone || '+1',
-        address: currentUser.address || '',
-        city: currentUser.city || '',
-        state: currentUser.state || '',
-        zipCode: currentUser.zipCode || '',
-      }));
-    }
+    const loadUserData = async () => {
+      if (currentUser?.id) {
+        try {
+          // Fetch fresh user data from Firebase
+          const userData = await userService.getUserById(currentUser.id);
+          if (userData) {
+            console.log('Loading user data for autofill:', userData);
+            
+            // Find the country object based on stored country code or name
+            const userCountry = countries.find(
+              c => c.code === userData.countryCode || c.name === userData.country
+            );
+
+            // Format phone numbers
+            const formatPhoneWithCountry = (phone, countryCode) => {
+              if (!phone) return '';
+              // If phone doesn't start with +, add the country's dial code
+              if (!phone.startsWith('+')) {
+                const country = countries.find(c => c.code === countryCode);
+                return country ? `${country.dialCode}${phone}` : phone;
+              }
+              return phone;
+            };
+
+            setFormData(prevData => ({
+              ...prevData,
+              firstName: userData.firstName || '',
+              lastName: userData.lastName || '',
+              email: userData.email || '',
+              country: userCountry?.name || userData.country || '',
+              countryCode: userCountry?.code || 'US',
+              primaryPhone: formatPhoneWithCountry(userData.primaryPhone, userCountry?.code) || userCountry?.dialCode || '+1',
+              secondaryPhone: formatPhoneWithCountry(userData.secondaryPhone, userCountry?.code) || userCountry?.dialCode || '+1',
+              address: userData.address || '',
+              city: userData.city || '',
+              state: userData.state || '',
+              zipCode: userData.zipCode || '',
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading user data for autofill:', error);
+        }
+      }
+    };
+
+    loadUserData();
   }, [currentUser]);
 
   // Fetch default test product

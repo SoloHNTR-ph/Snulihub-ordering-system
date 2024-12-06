@@ -114,6 +114,12 @@ export const AuthProvider = ({ children }) => {
       if (!user) {
         throw new Error('User not found');
       }
+
+      // Fetch complete user data to ensure we have all fields
+      const completeUserData = await userService.getUserById(user.id);
+      if (!completeUserData) {
+        throw new Error('Failed to load complete user data');
+      }
       
       // Set session identifiers
       const sessionId = Date.now().toString();
@@ -121,10 +127,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('sessionEmail', email);
       
       // Update user's active status
-      await userService.updateUserActiveStatus(user.id, true);
+      await userService.updateUserActiveStatus(completeUserData.id, true);
       
-      setCurrentUser(user);
-      return user;
+      // Store complete user data
+      setCurrentUser(completeUserData);
+      return completeUserData;
     } catch (err) {
       setError(err.message);
       throw err;
