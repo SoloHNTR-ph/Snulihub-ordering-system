@@ -24,9 +24,33 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      // Set authentication cookie that can be shared between domains
+      document.cookie = `auth=${JSON.stringify(currentUser)};domain=.netlify.app;path=/;max-age=86400;secure;samesite=lax`;
     } else {
       localStorage.removeItem('currentUser');
+      // Remove the authentication cookie
+      document.cookie = 'auth=;domain=.netlify.app;path=/;max-age=0;secure;samesite=lax';
     }
+  }, [currentUser]);
+
+  // Check for authentication cookie on mount and during navigation
+  useEffect(() => {
+    const checkAuthCookie = () => {
+      const cookies = document.cookie.split(';');
+      const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth='));
+      if (authCookie) {
+        const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
+        if (!currentUser || currentUser.email !== authData.email) {
+          setCurrentUser(authData);
+        }
+      } else if (currentUser) {
+        setCurrentUser(null);
+      }
+    };
+
+    checkAuthCookie();
+    window.addEventListener('focus', checkAuthCookie);
+    return () => window.removeEventListener('focus', checkAuthCookie);
   }, [currentUser]);
 
   const login = async (email, password) => {
