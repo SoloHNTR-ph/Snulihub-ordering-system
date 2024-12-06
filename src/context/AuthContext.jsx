@@ -23,101 +23,140 @@ export const AuthProvider = ({ children }) => {
   // Update localStorage whenever currentUser changes
   useEffect(() => {
     if (currentUser) {
-      // Stringify with null replacer and 2 spaces for readability
-      const userString = JSON.stringify(currentUser, null, 2);
-      localStorage.setItem('currentUser', userString);
-      
-      // Set both localStorage and sessionStorage for redundancy
-      sessionStorage.setItem('currentUser', userString);
-      
-      // Extract domain from current URL
-      const domain = window.location.hostname;
-      // Get the base domain (e.g., netlify.app)
-      const baseDomain = domain.split('.').slice(-2).join('.');
-      
-      console.log('Setting cookie for domain:', baseDomain);
-      
-      // Set authentication cookie that can be shared between domains
-      document.cookie = `auth=${encodeURIComponent(userString)};domain=.${baseDomain};path=/;max-age=86400;secure`;
+      try {
+        // Stringify with null replacer and 2 spaces for readability
+        const userString = JSON.stringify(currentUser, null, 2);
+        
+        console.log('Setting auth state with user:', currentUser);
+        console.log('Current domain:', window.location.hostname);
+        
+        // Store in localStorage
+        localStorage.setItem('currentUser', userString);
+        console.log('Stored in localStorage');
+        
+        // Store in sessionStorage
+        sessionStorage.setItem('currentUser', userString);
+        console.log('Stored in sessionStorage');
+        
+        // Set a simple cookie without domain restriction first
+        document.cookie = `auth=${encodeURIComponent(userString)};path=/;max-age=86400`;
+        console.log('Set basic cookie');
+        
+        // Try setting cookie for parent domain
+        if (window.location.hostname.includes('netlify.app')) {
+          document.cookie = `auth=${encodeURIComponent(userString)};domain=.netlify.app;path=/;max-age=86400`;
+          console.log('Set netlify domain cookie');
+        }
+        
+        // Log all cookies for debugging
+        console.log('Current cookies:', document.cookie);
+      } catch (error) {
+        console.error('Error setting auth state:', error);
+      }
     } else {
-      localStorage.removeItem('currentUser');
-      sessionStorage.removeItem('currentUser');
-      
-      // Clear cookie from both specific and base domains
-      const domain = window.location.hostname;
-      const baseDomain = domain.split('.').slice(-2).join('.');
-      
-      document.cookie = `auth=;domain=.${baseDomain};path=/;max-age=0;secure`;
-      document.cookie = 'auth=;path=/;max-age=0';
+      try {
+        console.log('Clearing auth state');
+        
+        // Clear storage
+        localStorage.removeItem('currentUser');
+        sessionStorage.removeItem('currentUser');
+        
+        // Clear cookies
+        document.cookie = 'auth=;path=/;max-age=0';
+        if (window.location.hostname.includes('netlify.app')) {
+          document.cookie = 'auth=;domain=.netlify.app;path=/;max-age=0';
+        }
+        
+        console.log('Auth state cleared');
+        console.log('Remaining cookies:', document.cookie);
+      } catch (error) {
+        console.error('Error clearing auth state:', error);
+      }
     }
   }, [currentUser]);
 
   // Check for authentication state on mount and during navigation
   useEffect(() => {
     const checkAuthState = () => {
-      console.log('AuthContext: Checking auth state');
+      console.log('Checking auth state');
+      console.log('Current domain:', window.location.hostname);
+      console.log('All cookies:', document.cookie);
+      
       // Try to get auth state from multiple sources
       const localUser = localStorage.getItem('currentUser');
       const sessionUser = sessionStorage.getItem('currentUser');
       const cookies = document.cookie.split(';');
       const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth='));
       
-      console.log('AuthContext: Found storage items:', {
+      console.log('Found storage items:', {
         hasLocalStorage: !!localUser,
         hasSessionStorage: !!sessionUser,
-        hasCookie: !!authCookie
+        hasCookie: !!authCookie,
+        cookieValue: authCookie ? authCookie.trim() : 'none'
       });
       
       let userData = null;
       
-      // Priority: Cookie > SessionStorage > LocalStorage
+      // Try cookie first
       if (authCookie) {
         try {
-          userData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
-          console.log('AuthContext: Parsed cookie data:', userData);
+          const cookieValue = authCookie.split('=')[1];
+          console.log('Raw cookie value:', cookieValue);
+          userData = JSON.parse(decodeURIComponent(cookieValue));
+          console.log('Parsed cookie data:', userData);
         } catch (e) {
           console.error('Failed to parse auth cookie:', e);
         }
-      } else if (sessionUser) {
+      }
+      
+      // Try sessionStorage if no cookie data
+      if (!userData && sessionUser) {
         try {
           userData = JSON.parse(sessionUser);
-          console.log('AuthContext: Parsed session data:', userData);
+          console.log('Using session storage data:', userData);
         } catch (e) {
           console.error('Failed to parse session storage:', e);
         }
-      } else if (localUser) {
+      }
+      
+      // Try localStorage as last resort
+      if (!userData && localUser) {
         try {
           userData = JSON.parse(localUser);
-          console.log('AuthContext: Parsed local storage data:', userData);
+          console.log('Using local storage data:', userData);
         } catch (e) {
           console.error('Failed to parse local storage:', e);
         }
       }
 
-      // Only update if there's a change in auth state
-      if (userData && (!currentUser || userData.id !== currentUser.id)) {
-        console.log('AuthContext: Updating current user:', userData);
+      if (userData) {
+        console.log('Setting current user to:', userData);
         setCurrentUser(userData);
-      } else if (!userData && currentUser) {
-        console.log('AuthContext: Clearing current user');
+      } else if (currentUser) {
+        console.log('Clearing current user');
         setCurrentUser(null);
       }
     };
 
-    // Check immediately
+    // Check immediately and set up listeners
     checkAuthState();
+    
+    const handleStorageChange = (e) => {
+      console.log('Storage changed:', e);
+      checkAuthState();
+    };
+    
+    const handleFocus = () => {
+      console.log('Window focused');
+      checkAuthState();
+    };
 
-    // Check on focus and storage changes
-    window.addEventListener('focus', checkAuthState);
-    window.addEventListener('storage', checkAuthState);
-
-    // Periodic check every 30 seconds
-    const interval = setInterval(checkAuthState, 30000);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('storage', handleStorageChange);
 
     return () => {
-      window.removeEventListener('focus', checkAuthState);
-      window.removeEventListener('storage', checkAuthState);
-      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [currentUser]);
 
