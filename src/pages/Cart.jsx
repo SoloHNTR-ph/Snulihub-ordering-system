@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,6 +7,25 @@ const Cart = () => {
   const navigate = useNavigate();
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate loading time
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <p className="text-gray-500">Loading your cart...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -17,8 +36,9 @@ const Cart = () => {
         </p>
       )}
       {cartItems.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-lg text-gray-500">Your cart is empty</p>
+        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-gray-500">Loading your cart...</p>
         </div>
       ) : (
         <div className="space-y-8">

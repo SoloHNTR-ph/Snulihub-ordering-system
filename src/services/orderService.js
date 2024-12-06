@@ -101,7 +101,8 @@ export const createOrder = async (orderData) => {
       orderCode,
       orderNumber,
       createdAt: new Date(),
-      status: 'pending'
+      status: 'pending',
+      totalAmount: orderData.items.reduce((total, item) => total + (item.price * item.quantity), 0)
     };
     
     const docRef = await addDoc(ordersCollection, orderWithTimestamp);
@@ -135,10 +136,14 @@ export const getOrderById = async (orderId) => {
   }
 };
 
-export const getOrdersByCode = async (orderCode) => {
+export const getOrdersByCode = async (orderCode, userId) => {
   try {
     const ordersRef = collection(db, 'orders');
-    const q = query(ordersRef, where('orderCode', '==', orderCode));
+    const q = query(
+      ordersRef,
+      where('orderCode', '==', orderCode),
+      where('userId', '==', userId)
+    );
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map(doc => ({

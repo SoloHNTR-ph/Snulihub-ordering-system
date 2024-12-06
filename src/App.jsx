@@ -99,6 +99,7 @@ function App() {
                         </ProtectedRoute>
                       } 
                     />
+                    {/* Commented out Cart and Products routes
                     <Route 
                       path="/products" 
                       element={
@@ -115,6 +116,7 @@ function App() {
                         </ProtectedRoute>
                       } 
                     />
+                    */}
                     <Route 
                       path="/admin/users" 
                       element={

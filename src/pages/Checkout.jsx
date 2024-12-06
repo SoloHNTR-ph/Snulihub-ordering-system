@@ -3,9 +3,11 @@ import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { createOrder } from '../services/orderService';
 import { userService } from '../services/userService';
+import { getOrdersByCode } from '../services/orderService';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import ReactCountryFlag from 'react-country-flag';
 import { useAuth } from '../context/AuthContext';
+import { productService } from '../services/productService';
 
 // Add country data
 const countries = [
@@ -27,7 +29,7 @@ const countries = [
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cartItems, clearCart } = useCart();
+  const { cartItems, clearCart, addToCart, updateQuantity } = useCart();
   const { currentUser } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -46,6 +48,7 @@ const Checkout = () => {
     cvv: '',
     message: '',
     sellerMessage: '',
+    password: ''
   });
 
   const [franchiseUsers, setFranchiseUsers] = useState([]);
@@ -60,6 +63,10 @@ const Checkout = () => {
   const [showPrimaryPhoneDropdown, setShowPrimaryPhoneDropdown] = useState(false);
   const [showSecondaryPhoneDropdown, setShowSecondaryPhoneDropdown] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
+  const [formErrors, setFormErrors] = useState({});
+
+  const [defaultProduct, setDefaultProduct] = useState(null);
 
   // Populate form data with user information if logged in
   useEffect(() => {
@@ -81,10 +88,34 @@ const Checkout = () => {
     }
   }, [currentUser]);
 
+  // Fetch default test product
+  useEffect(() => {
+    const fetchDefaultProduct = async () => {
+      try {
+        const products = await productService.getAllProducts();
+        const testProduct = products.find(p => p.name.toLowerCase() === 'test');
+        if (testProduct && cartItems.length === 0) {
+          // Ensure quantity is set to 1
+          const productWithQuantity = { ...testProduct, quantity: 1 };
+          setDefaultProduct(productWithQuantity);
+          // Clear cart first to ensure we start fresh
+          clearCart();
+          // Add the product with quantity 1
+          addToCart(productWithQuantity);
+        }
+      } catch (error) {
+        console.error('Error fetching default product:', error);
+      }
+    };
+
+    fetchDefaultProduct();
+  }, [addToCart, clearCart]);
+
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    setFormErrors({}); // Clear errors when user types
     
     if (name === 'primaryPhone' || name === 'secondaryPhone') {
       // Remove formatting spaces to get raw input
@@ -166,54 +197,36 @@ const Checkout = () => {
     }));
   };
 
-  const handlePasswordSubmit = (e) => {
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     if (passwordForm.password !== passwordForm.confirmPassword) {
       alert('Passwords do not match!');
       return;
     }
-    // Handle password submission here
+    
+    // Add password to formData
+    setFormData(prev => ({
+      ...prev,
+      password: passwordForm.password
+    }));
+    
     setShowPasswordModal(false);
-    // Continue with form submission
-    handleSubmit(e);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
     
     try {
-      let userId = currentUser?.id;
+      // Create new user first
+      const newUser = await userService.createUser({
+        ...formData,
+        password: passwordForm.password,
+      });
       
-      if (!userId) {
-        // Only create/update user if not logged in
-        if (!formData.password) {
-          setShowPasswordModal(true);
-          return;
-        }
-        
-        // Check if user exists
-        const existingUser = await userService.getUserByEmail(formData.email);
-        
-        if (existingUser) {
-          userId = existingUser.id;
-          // Update user information
-          await userService.updateUser(userId, formData);
-        } else {
-          // Create new user
-          const newUser = await userService.createUser({
-            ...formData,
-            password: formData.password,
-          });
-          userId = newUser.id;
-        }
-      }
-
-      // Create order
+      // Create order with new user
       const orderData = {
-        userId,
+        userId: newUser.userId,
         items: cartItems.map(item => ({
           ...item,
-          name: item.name // Ensure name is included for order code generation
+          name: item.name,
+          price: parseFloat(item.price),
+          quantity: parseInt(item.quantity)
         })),
         franchiseId: selectedFranchise || null,
         shippingAddress: {
@@ -233,8 +246,89 @@ const Checkout = () => {
 
       const { orderId, orderCode } = await createOrder(orderData);
       clearCart();
-      // Navigate with just the order code - it will contain franchise ID if present
-      navigate(`/order/${userId}/${orderCode}`);
+      
+      // Get order details using the secure function
+      const orders = await getOrdersByCode(orderCode, newUser.userId);
+      if (orders && orders.length > 0) {
+        navigate(`/order/${newUser.userId}/${orderCode}`);
+      } else {
+        console.error('Order not found after creation');
+        setFormErrors({ submit: 'Error creating order. Please try again.' });
+      }
+    } catch (error) {
+      console.error('Error processing order:', error);
+      setFormErrors({ submit: 'Error creating order. Please try again.' });
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormErrors({});  // Clear previous errors
+    
+    try {
+      let userId = currentUser?.id;
+      
+      if (!userId) {
+        // Only create/update user if not logged in
+        if (!formData.password) {
+          setShowPasswordModal(true);
+          return;
+        }
+        
+        // Check if user exists
+        const existingUser = await userService.getUserByEmail(formData.email);
+        
+        if (existingUser) {
+          setFormErrors({
+            email: 'This email is already registered. Please use a different email or login to your account.'
+          });
+          return;
+        }
+
+        // Create new user
+        const newUser = await userService.createUser({
+          ...formData,
+          password: formData.password,
+        });
+        userId = newUser.id;
+      }
+
+      // Create order
+      const orderData = {
+        userId,
+        items: cartItems.map(item => ({
+          ...item,
+          name: item.name,
+          price: parseFloat(item.price),
+          quantity: parseInt(item.quantity)
+        })),
+        franchiseId: selectedFranchise || null,
+        shippingAddress: {
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
+          country: formData.country,
+        },
+        sellerMessage: formData.sellerMessage,
+        contactInfo: {
+          email: formData.email,
+          primaryPhone: formData.primaryPhone,
+          secondaryPhone: formData.secondaryPhone,
+        },
+      };
+
+      const { orderId, orderCode } = await createOrder(orderData);
+      clearCart();
+      
+      // Get order details using the secure function
+      const orders = await getOrdersByCode(orderCode, userId);
+      if (orders && orders.length > 0) {
+        navigate(`/order/${userId}/${orderCode}`);
+      } else {
+        console.error('Order not found after creation');
+        setFormErrors({ submit: 'Error creating order. Please try again.' });
+      }
     } catch (error) {
       console.error('Error processing order:', error);
       // Handle error appropriately
@@ -262,14 +356,11 @@ const Checkout = () => {
 
   if (cartItems.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-lg text-gray-500">Your cart is empty</p>
-        <button
-          onClick={() => navigate('/products')}
-          className="mt-4 btn-primary focus:ring-0"
-        >
-          Continue Shopping
-        </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+          <p className="mt-4 text-lg text-gray-600">One moment . . .</p>
+        </div>
       </div>
     );
   }
@@ -305,9 +396,25 @@ const Checkout = () => {
                       />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-sm text-gray-900">{item.name}</h3>
-                      <p className="text-xs text-gray-600">Quantity: {item.quantity}</p>
-                      <p className="text-primary-600 font-bold text-sm">${(item.price * item.quantity).toFixed(2)}</p>
+                      <div className="flex flex-col">
+                        <h3 className="font-semibold text-sm text-gray-900">{item.name}</h3>
+                        <div className="flex items-center justify-center space-x-2 my-1">
+                          <button 
+                            className="text-xs px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          >
+                            -
+                          </button>
+                          <p className="text-xs text-gray-600 min-w-[80px] text-center">Quantity: {item.quantity}</p>
+                          <button 
+                            className="text-xs px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <p className="text-primary-600 font-bold text-sm">${(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -378,11 +485,14 @@ const Checkout = () => {
                     id="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="peer w-full px-2 py-1.5 rounded-lg border border-gray-200 focus:border-primary-500 focus:ring-0 focus:border-gray-200 outline-none transition-all duration-200 bg-white pt-4 text-black"
+                    className={`peer w-full px-2 py-1.5 rounded-lg border ${formErrors.email ? 'border-red-500' : 'border-gray-200'} focus:border-primary-500 focus:ring-0 focus:border-gray-200 outline-none transition-all duration-200 bg-white pt-4 text-black`}
                     required
                     placeholder=" "
                   />
-                  <label htmlFor="email" className="absolute text-sm text-gray-500 duration-200 transform -translate-y-4 scale-75 top-1 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-focus:text-primary-600 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-1 peer-focus:scale-75 peer-focus:-translate-y-4 left-1">Email</label>
+                  <label htmlFor="email" className={`absolute text-sm ${formErrors.email ? 'text-red-500' : 'text-gray-500'} duration-200 transform -translate-y-4 scale-75 top-1 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-focus:text-primary-600 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-1 peer-focus:scale-75 peer-focus:-translate-y-4 left-1`}>Email</label>
+                  {formErrors.email && (
+                    <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>
+                  )}
                 </div>
 
                 {/* Phone Number with Country Code */}

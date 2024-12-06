@@ -1,14 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { ShoppingCartIcon, UserIcon } from '@heroicons/react/24/outline'
+import { ShoppingCartIcon } from '@heroicons/react/24/outline'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
-import LoginModal from './LoginModal'
 
 export default function Navbar() {
   const { cartItems } = useCart();
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const { currentUser, logout, isCustomer, isFranchise } = useAuth();
   const navigate = useNavigate();
 
@@ -45,7 +43,7 @@ export default function Navbar() {
               </>
             )}
             
-            {currentUser ? (
+            {currentUser && (
               <div className="flex items-center space-x-4">
                 <button
                   onClick={goToDashboard}
@@ -60,17 +58,10 @@ export default function Navbar() {
                   Logout
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setIsLoginOpen(true)}
-                className="text-gray-600 hover:text-primary-600 transition-colors"
-              >
-                <UserIcon className="h-6 w-6" />
-              </button>
             )}
 
             {(!currentUser || !isFranchise) && (
-              <Link to="/cart" className="relative text-gray-600 hover:text-primary-600 transition-colors">
+              <Link to="/checkout" className="relative text-gray-600 hover:text-primary-600 transition-colors">
                 <ShoppingCartIcon className="h-6 w-6" />
                 {cartCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-primary-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -82,7 +73,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-      <LoginModal isOpen={isLoginOpen} setIsOpen={setIsLoginOpen} />
     </nav>
   )
 }

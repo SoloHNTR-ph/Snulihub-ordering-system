@@ -29,10 +29,10 @@ const Home = () => {
                   <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start fade-in-up stagger-delay-2">
                     <div className="rounded-md shadow">
                       <Link
-                        to="/products"
+                        to="/checkout"
                         className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 transition-all duration-300 hover:-translate-y-1 md:py-4 md:text-lg md:px-10"
                       >
-                        Start Shopping
+                        Proceed Order
                       </Link>
                     </div>
                   </div>

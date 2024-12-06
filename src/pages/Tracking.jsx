@@ -25,8 +25,12 @@ const Tracking = () => {
         const db = getFirestore(app);
         const ordersRef = collection(db, 'orders');
         
-        // Query orders collection directly
-        const q = query(ordersRef, where('orderCode', '==', orderCode));
+        // Query orders collection with both orderCode and userId for security
+        const q = query(
+          ordersRef,
+          where('orderCode', '==', orderCode),
+          where('userId', '==', customerUserId)
+        );
         console.log('Executing query...');
         const querySnapshot = await getDocs(q);
         console.log('Query results:', querySnapshot.size);
