@@ -30,12 +30,25 @@ export const AuthProvider = ({ children }) => {
       // Set both localStorage and sessionStorage for redundancy
       sessionStorage.setItem('currentUser', userString);
       
+      // Extract domain from current URL
+      const domain = window.location.hostname;
+      // Get the base domain (e.g., netlify.app)
+      const baseDomain = domain.split('.').slice(-2).join('.');
+      
+      console.log('Setting cookie for domain:', baseDomain);
+      
       // Set authentication cookie that can be shared between domains
-      document.cookie = `auth=${encodeURIComponent(userString)};domain=.netlify.app;path=/;max-age=86400;secure;samesite=lax`;
+      document.cookie = `auth=${encodeURIComponent(userString)};domain=.${baseDomain};path=/;max-age=86400;secure`;
     } else {
       localStorage.removeItem('currentUser');
       sessionStorage.removeItem('currentUser');
-      document.cookie = 'auth=;domain=.netlify.app;path=/;max-age=0;secure;samesite=lax';
+      
+      // Clear cookie from both specific and base domains
+      const domain = window.location.hostname;
+      const baseDomain = domain.split('.').slice(-2).join('.');
+      
+      document.cookie = `auth=;domain=.${baseDomain};path=/;max-age=0;secure`;
+      document.cookie = 'auth=;path=/;max-age=0';
     }
   }, [currentUser]);
 
