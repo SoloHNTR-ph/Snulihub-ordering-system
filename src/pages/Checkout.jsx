@@ -71,20 +71,25 @@ const Checkout = () => {
   // Populate form data with user information if logged in
   useEffect(() => {
     const loadUserData = async () => {
+      console.log('Checkout: Current user state:', currentUser);
+      
       if (currentUser?.id) {
         try {
+          console.log('Checkout: Fetching user data for ID:', currentUser.id);
           // Fetch fresh user data from Firebase
           const userData = await userService.getUserById(currentUser.id);
+          console.log('Checkout: Fetched user data:', userData);
+          
           if (userData) {
-            console.log('Loading user data for autofill:', userData);
-            
             // Find the country object based on stored country code or name
             const userCountry = countries.find(
               c => c.code === userData.countryCode || c.name === userData.country
             );
+            console.log('Checkout: Matched country:', userCountry);
 
             // Format phone numbers
             const formatPhoneWithCountry = (phone, countryCode) => {
+              console.log('Formatting phone:', { phone, countryCode });
               if (!phone) return '';
               // If phone doesn't start with +, add the country's dial code
               if (!phone.startsWith('+')) {
@@ -94,8 +99,7 @@ const Checkout = () => {
               return phone;
             };
 
-            setFormData(prevData => ({
-              ...prevData,
+            const formattedData = {
               firstName: userData.firstName || '',
               lastName: userData.lastName || '',
               email: userData.email || '',
@@ -107,16 +111,29 @@ const Checkout = () => {
               city: userData.city || '',
               state: userData.state || '',
               zipCode: userData.zipCode || '',
+            };
+
+            console.log('Checkout: Setting form data:', formattedData);
+            setFormData(prevData => ({
+              ...prevData,
+              ...formattedData
             }));
           }
         } catch (error) {
           console.error('Error loading user data for autofill:', error);
         }
+      } else {
+        console.log('Checkout: No user ID found in currentUser');
       }
     };
 
     loadUserData();
   }, [currentUser]);
+
+  // Log form data changes
+  useEffect(() => {
+    console.log('Checkout: Form data updated:', formData);
+  }, [formData]);
 
   // Fetch default test product
   useEffect(() => {

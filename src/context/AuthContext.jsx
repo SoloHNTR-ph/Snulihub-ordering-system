@@ -42,11 +42,18 @@ export const AuthProvider = ({ children }) => {
   // Check for authentication state on mount and during navigation
   useEffect(() => {
     const checkAuthState = () => {
+      console.log('AuthContext: Checking auth state');
       // Try to get auth state from multiple sources
       const localUser = localStorage.getItem('currentUser');
       const sessionUser = sessionStorage.getItem('currentUser');
       const cookies = document.cookie.split(';');
       const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth='));
+      
+      console.log('AuthContext: Found storage items:', {
+        hasLocalStorage: !!localUser,
+        hasSessionStorage: !!sessionUser,
+        hasCookie: !!authCookie
+      });
       
       let userData = null;
       
@@ -54,18 +61,21 @@ export const AuthProvider = ({ children }) => {
       if (authCookie) {
         try {
           userData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
+          console.log('AuthContext: Parsed cookie data:', userData);
         } catch (e) {
           console.error('Failed to parse auth cookie:', e);
         }
       } else if (sessionUser) {
         try {
           userData = JSON.parse(sessionUser);
+          console.log('AuthContext: Parsed session data:', userData);
         } catch (e) {
           console.error('Failed to parse session storage:', e);
         }
       } else if (localUser) {
         try {
           userData = JSON.parse(localUser);
+          console.log('AuthContext: Parsed local storage data:', userData);
         } catch (e) {
           console.error('Failed to parse local storage:', e);
         }
@@ -73,8 +83,10 @@ export const AuthProvider = ({ children }) => {
 
       // Only update if there's a change in auth state
       if (userData && (!currentUser || userData.id !== currentUser.id)) {
+        console.log('AuthContext: Updating current user:', userData);
         setCurrentUser(userData);
       } else if (!userData && currentUser) {
+        console.log('AuthContext: Clearing current user');
         setCurrentUser(null);
       }
     };
@@ -150,8 +162,15 @@ export const AuthProvider = ({ children }) => {
       // Clear all session data
       setCurrentUser(null);
       
-      // Clear all authentication-related items from localStorage
-      localStorage.clear(); // This ensures ALL session data is removed
+      // Clear all storage mechanisms
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Clear the shared authentication cookie
+      document.cookie = 'auth=;domain=.netlify.app;path=/;max-age=0;secure;samesite=lax';
+      
+      // Also clear it from the root path
+      document.cookie = 'auth=;path=/;max-age=0';
       
       // Reset error state
       setError(null);
@@ -160,6 +179,9 @@ export const AuthProvider = ({ children }) => {
       // Still clear local data even if Firebase update fails
       setCurrentUser(null);
       localStorage.clear();
+      sessionStorage.clear();
+      document.cookie = 'auth=;domain=.netlify.app;path=/;max-age=0;secure;samesite=lax';
+      document.cookie = 'auth=;path=/;max-age=0';
     }
   };
 
