@@ -23,34 +23,77 @@ export const AuthProvider = ({ children }) => {
   // Update localStorage whenever currentUser changes
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      // Stringify with null replacer and 2 spaces for readability
+      const userString = JSON.stringify(currentUser, null, 2);
+      localStorage.setItem('currentUser', userString);
+      
+      // Set both localStorage and sessionStorage for redundancy
+      sessionStorage.setItem('currentUser', userString);
+      
       // Set authentication cookie that can be shared between domains
-      document.cookie = `auth=${JSON.stringify(currentUser)};domain=.netlify.app;path=/;max-age=86400;secure;samesite=lax`;
+      document.cookie = `auth=${encodeURIComponent(userString)};domain=.netlify.app;path=/;max-age=86400;secure;samesite=lax`;
     } else {
       localStorage.removeItem('currentUser');
-      // Remove the authentication cookie
+      sessionStorage.removeItem('currentUser');
       document.cookie = 'auth=;domain=.netlify.app;path=/;max-age=0;secure;samesite=lax';
     }
   }, [currentUser]);
 
-  // Check for authentication cookie on mount and during navigation
+  // Check for authentication state on mount and during navigation
   useEffect(() => {
-    const checkAuthCookie = () => {
+    const checkAuthState = () => {
+      // Try to get auth state from multiple sources
+      const localUser = localStorage.getItem('currentUser');
+      const sessionUser = sessionStorage.getItem('currentUser');
       const cookies = document.cookie.split(';');
       const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth='));
+      
+      let userData = null;
+      
+      // Priority: Cookie > SessionStorage > LocalStorage
       if (authCookie) {
-        const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
-        if (!currentUser || currentUser.email !== authData.email) {
-          setCurrentUser(authData);
+        try {
+          userData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
+        } catch (e) {
+          console.error('Failed to parse auth cookie:', e);
         }
-      } else if (currentUser) {
+      } else if (sessionUser) {
+        try {
+          userData = JSON.parse(sessionUser);
+        } catch (e) {
+          console.error('Failed to parse session storage:', e);
+        }
+      } else if (localUser) {
+        try {
+          userData = JSON.parse(localUser);
+        } catch (e) {
+          console.error('Failed to parse local storage:', e);
+        }
+      }
+
+      // Only update if there's a change in auth state
+      if (userData && (!currentUser || userData.id !== currentUser.id)) {
+        setCurrentUser(userData);
+      } else if (!userData && currentUser) {
         setCurrentUser(null);
       }
     };
 
-    checkAuthCookie();
-    window.addEventListener('focus', checkAuthCookie);
-    return () => window.removeEventListener('focus', checkAuthCookie);
+    // Check immediately
+    checkAuthState();
+
+    // Check on focus and storage changes
+    window.addEventListener('focus', checkAuthState);
+    window.addEventListener('storage', checkAuthState);
+
+    // Periodic check every 30 seconds
+    const interval = setInterval(checkAuthState, 30000);
+
+    return () => {
+      window.removeEventListener('focus', checkAuthState);
+      window.removeEventListener('storage', checkAuthState);
+      clearInterval(interval);
+    };
   }, [currentUser]);
 
   const login = async (email, password) => {
